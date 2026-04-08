@@ -1,0 +1,30 @@
+services:
+  redis:
+    image: redis/redis-stack-server:latest
+    container_name: smart-engine-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  app:
+    build: .
+    container_name: smart-engine-app
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: .
+    container_name: smart-engine-worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+    command: ["uv", "run", "python", "-m", "app.worker"]
+
+volumes:
+  redis-data:
