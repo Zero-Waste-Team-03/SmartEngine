@@ -1,0 +1,18 @@
+[project]
+name = "smart-engine"
+version = "0.1.0"
+description = "FastAPI service with a health check endpoint"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.workspace]
+members = [
+    "smart-engine",
+]
