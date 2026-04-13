@@ -66,18 +66,23 @@ class EventProcessingService:
         }
 
     def process_donation_published(self, payload: DonationPublishedEvent) -> dict[str, Any]:
+        donation_title = self._build_donation_title(payload)
+        donation_body = self._build_donation_body(payload)
+        donation_tags = self._build_donation_tags(payload)
+        donation_text = self._build_donation_search_text(payload, donation_title, donation_body, donation_tags)
+
         stored = self._store.add_donation(
             {
                 "donation_id": str(payload.donation_id),
                 "donor_id": str(payload.donor_id),
-                "title": "New donation available",
-                "body": self._build_donation_body(payload),
+                "title": donation_title,
+                "body": donation_body,
                 "category_id": str(payload.category_id) if payload.category_id else None,
                 "urgency": payload.urgency,
                 "safety_checklist_completed": payload.safety_checklist_completed,
-                "tags": [item for item in [payload.urgency, str(payload.category_id) if payload.category_id else None] if item],
+                "tags": donation_tags,
                 "metadata": {"eventName": payload.event_name, "timestamp": payload.timestamp.isoformat(), **payload.metadata},
-                "search_text": self._build_donation_body(payload),
+                "search_text": donation_text,
             }
         )
 
@@ -113,7 +118,18 @@ class EventProcessingService:
         }
 
     @staticmethod
+    def _build_donation_title(payload: DonationPublishedEvent) -> str:
+        metadata_title = payload.metadata.get("title")
+        if isinstance(metadata_title, str) and metadata_title.strip():
+            return metadata_title.strip()
+        return "New donation available"
+
+    @staticmethod
     def _build_donation_body(payload: DonationPublishedEvent) -> str:
+        metadata_body = payload.metadata.get("body")
+        if isinstance(metadata_body, str) and metadata_body.strip():
+            return metadata_body.strip()
+
         parts = [
             f"Category: {payload.category_id}" if payload.category_id else "",
             f"Urgency: {payload.urgency}" if payload.urgency else "",
@@ -121,5 +137,45 @@ class EventProcessingService:
         ]
         return " | ".join(part for part in parts if part)
 
+    @staticmethod
+    def _build_donation_tags(payload: DonationPublishedEvent) -> list[str]:
+        tags: list[str] = []
+        if payload.urgency:
+            tags.append(payload.urgency)
+        if payload.category_id:
+            tags.append(str(payload.category_id))
 
-event_processing_service = EventProcessingService()
+        metadata_tags = payload.metadata.get("tags")
+        if isinstance(metadata_tags, list):
+            for item in metadata_tags:
+                if isinstance(item, str) and item.strip():
+                    tags.append(item.strip())
+
+        return tags
+
+    @staticmethod
+    def _build_donation_search_text(
+        payload: DonationPublishedEvent,
+        title: str,
+        body: str,
+        tags: list[str],
+    ) -> str:
+        parts = [
+            title,
+            body,
+            payload.event_name,
+            str(payload.category_id) if payload.category_id else "",
+            payload.urgency or "",
+            " ".join(tags),
+        ]
+        return " ".join(part for part in parts if part).strip()
+
+
+_event_processing_service: EventProcessingService | None = None
+
+
+def get_event_processing_service() -> EventProcessingService:
+    global _event_processing_service
+    if _event_processing_service is None:
+        _event_processing_service = EventProcessingService()
+    return _event_processing_service

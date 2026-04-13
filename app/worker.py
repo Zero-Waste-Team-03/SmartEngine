@@ -4,8 +4,10 @@ import json
 import logging
 import time
 
+from pydantic import ValidationError
+
 from app.schemas.events import BeneficiarySearchPerformedEvent, DonationPublishedEvent
-from app.services.event_processing_service import event_processing_service
+from app.services.event_processing_service import get_event_processing_service
 from app.services.redis_connection import create_redis_client
 
 
@@ -16,6 +18,7 @@ EVENT_CHANNEL = "smart.behavior.events.v1"
 
 
 def run() -> None:
+    event_processing_service = get_event_processing_service()
     client = create_redis_client()
     pubsub = client.pubsub(ignore_subscribe_messages=True)
     pubsub.subscribe(EVENT_CHANNEL)
@@ -48,15 +51,18 @@ def run() -> None:
                 continue
 
             logger.info("Ignored event: %s", event_name)
+        except KeyboardInterrupt:
+            logger.info("Worker stopped")
+            break
+        except ValidationError as exc:
+            logger.warning("Invalid event payload ignored: %s", exc)
+            continue
         except Exception as exc:
             logger.exception("Redis error, reconnecting: %s", exc)
             time.sleep(2)
             client = create_redis_client()
             pubsub = client.pubsub(ignore_subscribe_messages=True)
             pubsub.subscribe(EVENT_CHANNEL)
-        except KeyboardInterrupt:
-            logger.info("Worker stopped")
-            break
 
 
 if __name__ == "__main__":
