@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/app/.venv \
     UV_LINK_MODE=copy
 
-COPY pyproject.toml uv.lock README.md contracts.md ./
+COPY pyproject.toml uv.lock  ./
 COPY app ./app
 
 RUN uv sync

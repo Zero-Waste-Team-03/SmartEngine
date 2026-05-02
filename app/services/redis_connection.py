@@ -10,4 +10,4 @@ def get_redis_url() -> str:
 
 def create_redis_client() -> Any:
     redis = importlib.import_module("redis")
-    return redis.Redis.from_url(get_redis_url(), decode_responses=True)
+    return redis.Redis.from_url(get_redis_url(), decode_responses=False)

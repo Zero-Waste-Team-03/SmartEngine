@@ -4,61 +4,80 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
-NotificationType = Literal[
-    "Message",
-    "New_post",
-    "Test",
-    "New_achievement",
-    "Reservation_alert",
+NotificationType = Literal["New_post"]
+Event_Type = Literal[
+    "BeneficiarySearchPerformed",
+    "DonationPublished",
+    "publish_donation",
+    "LikedDonation",
 ]
-
 UrgencyType = Literal["Low", "Medium", "High"]
 DistanceBucketType = Literal["500m", "1km", "5km"]
-OriginType = Literal["map", "list"]
 
 
-class NotificationCommandEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    event_id: UUID = Field(default_factory=uuid4, alias="eventId")
-    user_id: UUID = Field(alias="userId")
-    title: str
-    body: str
-    type: NotificationType
-    save: bool
-    meta: dict[str, Any] = Field(default_factory=dict)
-
-
-class BeneficiarySearchPerformedEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    event_id: UUID = Field(alias="eventId")
-    timestamp: datetime
-    event_name: Literal["BeneficiarySearchPerformed"] = Field(alias="eventName")
-    user_id: UUID = Field(alias="userId")
-    category_id: UUID | None = Field(default=None, alias="categoryId")
-    urgency: UrgencyType | None = None
-    distance_bucket: DistanceBucketType | None = Field(default=None, alias="distanceBucket")
-    origin: OriginType | None = None
-
-    @field_validator("origin")
-    @classmethod
-    def validate_origin(cls, value: OriginType | None) -> OriginType | None:
-        return value
+class Location(BaseModel):
+    city: str | None = None
+    neighborhood: str | None = None
+    country: str | None = None
+    latitude: float
+    longitude: float
 
 
 class DonationPublishedEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    event_id: UUID = Field(alias="eventId")
+    eventId: UUID
     timestamp: datetime
-    event_name: Literal["DonationPublished"] = Field(alias="eventName")
-    donor_id: UUID = Field(alias="donorId")
-    donation_id: UUID = Field(alias="donationId")
-    category_id: UUID | None = Field(default=None, alias="categoryId")
-    urgency: UrgencyType | None = None
-    safety_checklist_completed: bool = Field(alias="safetyChecklistCompleted")
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    eventName: Literal["DonationPublished", "publish_donation"]
+    donorId: UUID
+    donationId: UUID
+    donationTitle: str
+    donationDescription: str | None = None
+    category: str
+    urgency: UrgencyType
+    safetyChecklistCompleted: bool
+    quantity: int
+    location: Location
+    tags: list[str] = Field(default_factory=list)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v):
+        return v if v else None
+
+
+class DonationLikedEvent(BaseModel):
+    eventId: UUID
+    timestamp: datetime
+    eventName: Literal["LikedDonation"]
+    userId: UUID
+    likerUserId: UUID
+    donationId: UUID
+    donationTitle: str
+    category: str
+    quantity: int
+    urgency: UrgencyType
+    location: Location
+
+
+class BeneficiarySearchPerformedEvent(BaseModel):
+    eventId: UUID
+    timestamp: datetime
+    eventName: Literal["BeneficiarySearchPerformed"]
+    beneficiaryId: UUID
+    category: str | None = None
+    location: Location | None = None
+    distanceBucket: DistanceBucketType | None = None
+
+
+class NotificationCommandEvent(BaseModel):
+    eventId: UUID = Field(default_factory=uuid4)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    eventName: Literal["notify_user"] = Field(default="notify_user")
+    userId: UUID
+    title: str
+    body: str
+    type: NotificationType = Field(default="New_post")
+    save: bool = Field(default=True)
+    meta: dict[str, Any] = Field(default_factory=dict)
