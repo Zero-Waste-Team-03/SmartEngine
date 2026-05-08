@@ -1,0 +1,47 @@
+services:
+  redis:
+    image: redis/redis-stack:latest
+    container_name: smart-engine-redis
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+    volumes:
+      - redis-data:/data
+
+  app:
+    build: .
+    container_name: smart-engine-app
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DONATION_EVENTS_CHANNEL: ${DONATION_EVENTS_CHANNEL:-publish_donation}
+      NOTIFY_USER_CHANNEL: ${NOTIFY_USER_CHANNEL:-notify_user}
+      OLLAMA_EMBEDDING_URL: ${OLLAMA_EMBEDDING_URL}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-768}
+      MATCHING_TOP_K: ${MATCHING_TOP_K:-20}
+      MATCHING_KNN_CANDIDATES: ${MATCHING_KNN_CANDIDATES:-150}
+      MATCHING_MAX_DISTANCE_KM: ${MATCHING_MAX_DISTANCE_KM:-25}
+    ports:
+      - "8003:8000"
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    container_name: smart-engine-worker
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DONATION_EVENTS_CHANNEL: ${DONATION_EVENTS_CHANNEL:-publish_donation}
+      NOTIFY_USER_CHANNEL: ${NOTIFY_USER_CHANNEL:-notify_user}
+      OLLAMA_EMBEDDING_URL: ${OLLAMA_EMBEDDING_URL}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-768}
+      MATCHING_TOP_K: ${MATCHING_TOP_K:-20}
+      MATCHING_KNN_CANDIDATES: ${MATCHING_KNN_CANDIDATES:-150}
+      MATCHING_MAX_DISTANCE_KM: ${MATCHING_MAX_DISTANCE_KM:-25}
+    command: ["uv", "run", "python", "-m", "app.worker"]
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
